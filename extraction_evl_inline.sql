@@ -342,7 +342,7 @@ def main_handler(session: Session, source_table: str, app_name: str, app_version
         print("✅ OCR evaluation run started")
         
         print("Waiting for invocation to complete...")
-        max_wait = 300
+        max_wait = 900  # 15 minutes (increased from 5 minutes)
         wait_time = 0
         while run.get_status() != "INVOCATION_COMPLETED" and wait_time < max_wait:
             current_status = run.get_status()
@@ -353,7 +353,7 @@ def main_handler(session: Session, source_table: str, app_name: str, app_version
         if wait_time >= max_wait:
             return json.dumps({
                 "status": "timeout",
-                "message": "Invocation timeout after 5 minutes"
+                "message": "Invocation timeout after 15 minutes"
             })
         
         print("✅ Invocation completed")
