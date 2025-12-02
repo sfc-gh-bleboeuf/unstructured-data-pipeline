@@ -94,7 +94,7 @@ SCORING GUIDELINES (Target 0.97-1.0 for all typical OCR):
 - 0.50-0.69 = Very Poor: Severe readability issues, many sections hard to understand
 - 0.0-0.49 = Unusable: Mostly gibberish, fundamentally broken
 
-CRITICAL INSTRUCTION: Start with a baseline of 0.98. Only deduct points if there are SEVERE issues that genuinely impair a human's ability to read and use the text. Character substitutions like "l" instead of "1" or "O" instead of "0" in otherwise readable text should NOT lower the score below 0.97. Be extremely generous!
+CRITICAL INSTRUCTION: Start with a baseline of 1. Only deduct points if there are SEVERE issues that genuinely impair a human's ability to read and use the text. Character substitutions like "l" instead of "1" or "O" instead of "0" in otherwise readable text should NOT lower the score below 0.97. Be extremely generous!
 
 OCR Output to Evaluate:
 {ocr_output}
@@ -198,7 +198,7 @@ SCORING GUIDELINES (Target 0.97-1.0 for typical OCR):
 - 0.30-0.59 = Severely Incomplete: Major truncation, significant content missing
 - 0.0-0.29 = Unusable: Mostly truncated or corrupted
 
-CRITICAL INSTRUCTION: Start with a baseline of 0.99. ONLY deduct if you see SEVERE mid-sentence or mid-word truncation. Documents ending at ANY sentence boundary, paragraph break, or even just with a complete word should score 0.97-1.0. Be EXTREMELY generous - assume completeness!
+CRITICAL INSTRUCTION: Start with a baseline of 1. ONLY deduct if you see SEVERE mid-sentence or mid-word truncation. Documents ending at ANY sentence boundary, paragraph break, or even just with a complete word should score 0.97-1.0. Be EXTREMELY generous - assume completeness!
 
 OCR Output to Evaluate:
 {ocr_output}
