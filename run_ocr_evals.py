@@ -99,7 +99,7 @@ SCORING GUIDELINES (Be Generous - Target 0.85-0.95 for typical OCR):
 - 0.30-0.49 = Poor: Significant readability issues, many garbled sections
 - 0.0-0.29 = Very Poor: Mostly unusable, extensive corruption
 
-IMPORTANT: Start with a baseline of 0.9 and only deduct for issues that ACTUALLY IMPAIR USABILITY. Minor character confusion is NORMAL in OCR and should not drop the score below 0.85 unless widespread.
+IMPORTANT: Start with a baseline of 1 and only deduct for issues that ACTUALLY IMPAIR USABILITY. Minor character confusion is NORMAL in OCR and should not drop the score below 0.85 unless widespread.
 
 OCR Output to Evaluate:
 {ocr_output}
@@ -200,7 +200,7 @@ SCORING GUIDELINES (Be Generous - Assume Completeness Unless Clearly Broken):
 - 0.30-0.49 = Incomplete: Clear mid-sentence truncation or missing critical sections
 - 0.0-0.29 = Severely Incomplete: Most content missing or severely truncated
 
-IMPORTANT: Start with a baseline of 0.95 and ONLY deduct if you see OBVIOUS mid-sentence/mid-word truncation. Ending at a sentence boundary with a period = 0.95-1.0. Missing footers/headers = still 0.90+. Be generous!
+IMPORTANT: Start with a baseline of 1 and ONLY deduct if you see OBVIOUS mid-sentence/mid-word truncation. Ending at a sentence boundary with a period = 0.95-1.0. Missing footers/headers = still 0.90+. Be generous!
 
 OCR Output to Evaluate:
 {ocr_output}
