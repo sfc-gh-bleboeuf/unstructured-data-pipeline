@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 ocr_quality_reasoning: Dict[str, str] = {}
 ocr_completeness_reasoning: Dict[str, str] = {}
 
-def ocr_quality_metric(ocr_output: str) -> float:
+def ocr_quality_metric(ocr_output: str) -> tuple:
     response_format = {
         "type": "json",
         "schema": {
@@ -123,13 +123,13 @@ Be optimistic and generous in your scoring. Respond ONLY with JSON: {{ "score": 
                     result = json.loads(json.loads(response))
                 except Exception:
                     logger.exception("Unable to parse response string for ocr_quality_metric")
-                    return 0.5
+                    return (0.5, {"reason": "Unable to parse response string"})
         else:
             try:
                 result = json.loads(str(response))
             except Exception:
                 logger.exception("Unable to coerce response to JSON for ocr_quality_metric")
-                return 0.5
+                return (0.5, {"reason": "Unable to coerce response to JSON"})
 
         if isinstance(result, dict):
             score = float(result.get('score', 0.0))
@@ -138,17 +138,17 @@ Be optimistic and generous in your scoring. Respond ONLY with JSON: {{ "score": 
             logger.info(f"[OCR Quality] Score: {score:.3f} | Reasoning: {reasoning}")
         else:
             logger.warning("ocr_quality_metric result is not a dict; returning default 0.5")
-            return 0.5
+            return (0.5, {"reason": "Result is not a dict"})
 
         score = max(0.0, min(1.0, score))
-        return score
+        return (score, {"reason": reasoning})
 
     except Exception as e:
         logger.exception("Error in ocr_quality_metric")
-        return 0.5
+        return (0.5, {"reason": f"Error in ocr_quality_metric: {str(e)}"})
 
 
-def ocr_completeness_metric(ocr_output: str) -> float:
+def ocr_completeness_metric(ocr_output: str) -> tuple:
     response_format = {
         "type": "json",
         "schema": {
@@ -224,13 +224,13 @@ Be optimistic and assume completeness unless there's clear evidence of truncatio
                     result = json.loads(json.loads(response))
                 except Exception:
                     logger.exception("Unable to parse response string for ocr_completeness_metric")
-                    return 0.5
+                    return (0.5, {"reason": "Unable to parse response string"})
         else:
             try:
                 result = json.loads(str(response))
             except Exception:
                 logger.exception("Unable to coerce response to JSON for ocr_completeness_metric")
-                return 0.5
+                return (0.5, {"reason": "Unable to coerce response to JSON"})
 
         if isinstance(result, dict):
             score = float(result.get('score', 0.0))
@@ -239,14 +239,14 @@ Be optimistic and assume completeness unless there's clear evidence of truncatio
             logger.info(f"[OCR Completeness] Score: {score:.3f} | Reasoning: {reasoning}")
         else:
             logger.warning("ocr_completeness_metric result is not a dict; returning default 0.5")
-            return 0.5
+            return (0.5, {"reason": "Result is not a dict"})
 
         score = max(0.0, min(1.0, score))
-        return score
+        return (score, {"reason": reasoning})
 
     except Exception as e:
         logger.exception("Error in ocr_completeness_metric")
-        return 0.5
+        return (0.5, {"reason": f"Error in ocr_completeness_metric: {str(e)}"})
 
 
 def main_handler(session: Session, source_table: str, app_name: str, app_version: str) -> Dict[str, Any]:
