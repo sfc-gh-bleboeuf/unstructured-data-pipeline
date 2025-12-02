@@ -348,7 +348,7 @@ def main_handler(session: Session, source_table: str, app_name: str, app_version
         logger.info("OCR evaluation run started")
 
         logger.info("Waiting for invocation to complete...")
-        max_wait = 300
+        max_wait = 900
         wait_time = 0
         while run.get_status() != "INVOCATION_COMPLETED" and wait_time < max_wait:
             current_status = run.get_status()
