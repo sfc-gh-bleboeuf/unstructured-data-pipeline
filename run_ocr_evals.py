@@ -107,7 +107,7 @@ OCR Output to Evaluate:
 Be optimistic and generous in your scoring. Respond ONLY with JSON: {{ "score": <0-1>, "reasoning": "<brief explanation of score>" }}"""
     try:
         response = complete(
-            model="llama3.1-70b",
+            model="llama3.1-8b",
             prompt=prompt,
             options=CompleteOptions(response_format=response_format)
         )
