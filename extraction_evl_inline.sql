@@ -21,7 +21,6 @@ PACKAGES = (
 )
 HANDLER = 'main_handler'
 EXECUTE AS CALLER
-COMMENT = 'Evaluates OCR accuracy using TruLens custom metrics and Cortex AI as LLM judge'
 AS
 $$
 import pandas as pd
@@ -524,11 +523,6 @@ def main_handler(session: Session, source_table: str, app_name: str, app_version
         })
 $$;
 
--- ====================================================================
--- DROP OLD TABLE (if it exists with old schema)
--- ====================================================================
--- Run this if you previously ran the synthetic version with ocr_quality_score
-DROP TABLE IF EXISTS OCR_ACCURACY;
 
 -- ====================================================================
 -- PRODUCTION EXECUTION
