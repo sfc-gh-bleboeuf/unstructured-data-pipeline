@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
-run_ocr_evaluator.py
+small_run_ocr_evals.py
+
+Optimized version with smaller grading prompts for faster LLM-as-judge evaluation.
 
 Usage:
-    python run_ocr_evaluator.py --source-table MY_DB.MY_SCHEMA.MY_TABLE \
-                                --app-name my_app \
-                                --app-version v1 \
-                                [--sf-config snowflake_conn.json]
+    python small_run_ocr_evals.py --source-table MY_DB.MY_SCHEMA.MY_TABLE \
+                                  --app-name my_app \
+                                  --app-version v1 \
+                                  [--sf-config snowflake_conn.json]
 
 If --sf-config is not supplied, the script will read Snowflake connection settings
 from environment variables:
@@ -61,53 +63,21 @@ def ocr_quality_metric(ocr_output: str) -> tuple:
         }
     }
 
-    prompt = f"""You are an expert OCR quality evaluator with an OPTIMISTIC perspective. Evaluate this OCR output quality WITHOUT ground truth comparison. Focus on whether the text is FUNCTIONAL and USABLE despite minor imperfections.
+    prompt = f"""Rate this OCR output quality (0-1). Be generous - minor OCR artifacts are normal. Start baseline with score of 1.
 
-EVALUATION PHILOSOPHY:
-- OCR technology naturally produces some minor artifacts - this is expected and acceptable
-- Focus on whether a human can understand and use the text
-- Minor character substitutions that don't impair meaning should not heavily penalize the score
-- Prioritize READABILITY and USABILITY over perfection
+Scoring:
+- 0.9-1.0: Readable, minimal errors
+- 0.7-0.89: Readable with some character errors
+- 0.5-0.69: Multiple errors but comprehensible
+- <0.5: Significant readability issues
 
-QUALITY ASSESSMENT CRITERIA:
-
-1. **Readability (Primary Focus)**:
-   - Can the text be understood by a human reader?
-   - Are words and sentences generally comprehensible?
-   - Is the overall meaning preserved?
-
-2. **Critical Errors (Major Impact)**:
-   - Completely garbled/nonsensical text
-   - Large sections of random characters
-   - Critical data corruption (e.g., amounts, dates completely wrong)
-
-3. **Minor Issues (Minimal Impact)**:
-   - Occasional character confusion (0/O, 1/l) that doesn't change meaning
-   - Minor spacing irregularities
-   - Slight formatting variations
-
-4. **Acceptable Variations**:
-   - Single character substitutions in otherwise readable words
-   - Minor punctuation differences
-   - Spacing variations that don't impair readability
-
-SCORING GUIDELINES (Be Generous - Target 0.85-0.95 for typical OCR):
-- 0.95-1.0 = Excellent: Highly readable, minimal artifacts, professional quality
-- 0.85-0.94 = Very Good (TARGET RANGE): Readable and usable, minor OCR artifacts present but don't impair function
-- 0.70-0.84 = Good: Readable with noticeable but tolerable errors (5-8 minor character issues)
-- 0.50-0.69 = Fair: Multiple errors affecting readability but still comprehensible
-- 0.30-0.49 = Poor: Significant readability issues, many garbled sections
-- 0.0-0.29 = Very Poor: Mostly unusable, extensive corruption
-
-IMPORTANT: Start with a baseline of 1 and only deduct for issues that ACTUALLY IMPAIR USABILITY. Minor character confusion is NORMAL in OCR and should not drop the score below 0.85 unless widespread.
-
-OCR Output to Evaluate:
+OCR Output:
 {ocr_output}
 
-Be optimistic and generous in your scoring. Respond ONLY with JSON: {{ "score": <0-1>, "reasoning": "<brief explanation of score>" }}"""
+JSON response: {{"score": <0-1>, "reasoning": "<brief>"}}"""
     try:
         response = complete(
-            model="llama3.1-8b",
+            model="claude-3-5-sonnet",
             prompt=prompt,
             options=CompleteOptions(response_format=response_format)
         )
@@ -161,51 +131,20 @@ def ocr_completeness_metric(ocr_output: str) -> tuple:
         }
     }
 
-    prompt = f"""You are an expert OCR completeness evaluator with a PRAGMATIC and GENEROUS perspective. Evaluate whether this OCR output appears COMPLETE WITHOUT ground truth comparison. Assume the OCR captured what was visible and focus on whether the captured content is coherent and usable.
+    prompt = f"""Rate this OCR output completeness (0-1). Be generous - partial docs are valid if coherent. Start baseline with score of 1.
 
-EVALUATION PHILOSOPHY:
-- OCR extracts what it sees - partial documents or single-page captures are VALID and COMPLETE in context
-- Focus on whether the CAPTURED content is structurally sound, not whether more content might exist elsewhere
-- A document excerpt or single record can be 100% complete if it's coherent and functional
-- Only penalize for OBVIOUS mid-sentence truncation or garbled endings
+Scoring:
+- 0.9-1.0: Complete, ends at natural boundary
+- 0.7-0.89: Minor issues, content intact
+- 0.5-0.69: Some truncation but main content present
+- <0.5: Clear mid-sentence truncation or missing sections
 
-COMPLETENESS ASSESSMENT (Focus on what IS present):
+Only penalize for obvious mid-word/mid-sentence cuts.
 
-1. **Structural Coherence (Primary Focus)**:
-   - Does the text have a coherent structure?
-   - Are the sentences that ARE present complete and readable?
-   - Does the content make sense as a standalone unit?
-
-2. **SEVERE Incompleteness (Major Penalty)**:
-   - Text cuts off MID-WORD or MID-SENTENCE
-   - Last sentence clearly incomplete (e.g., "The patient was diagno")
-   - Critical truncation that makes content unusable
-
-3. **Minor/Acceptable Endings (Minimal/No Penalty)**:
-   - Document ends at a logical boundary (end of paragraph, list item, data field)
-   - Missing header/footer metadata (this is common and acceptable)
-   - Single page from multi-page document (captured content is complete)
-   - Ending without formal conclusion (many documents don't have one)
-
-4. **Natural Document Boundaries**:
-   - Ends at completion of a sentence = COMPLETE
-   - Ends at completion of a data record/list item = COMPLETE
-   - Ends at page boundary = COMPLETE
-   - Ends after a period/punctuation = COMPLETE
-
-SCORING GUIDELINES (Be Generous - Assume Completeness Unless Clearly Broken):
-- 0.90-1.0 = Complete (TARGET RANGE): Content is coherent and usable, ends at natural boundaries, no mid-sentence truncation
-- 0.75-0.89 = Mostly Complete: Minor ending issues but all present content is intact
-- 0.50-0.74 = Moderately Complete: Some sections appear cut off but main content survives
-- 0.30-0.49 = Incomplete: Clear mid-sentence truncation or missing critical sections
-- 0.0-0.29 = Severely Incomplete: Most content missing or severely truncated
-
-IMPORTANT: Start with a baseline of 1 and ONLY deduct if you see OBVIOUS mid-sentence/mid-word truncation. Ending at a sentence boundary with a period = 0.95-1.0. Missing footers/headers = still 0.90+. Be generous!
-
-OCR Output to Evaluate:
+OCR Output:
 {ocr_output}
 
-Be optimistic and assume completeness unless there's clear evidence of truncation. Respond ONLY with JSON: {{ "score": <0-1>, "reasoning": "<brief explanation>" }}"""
+JSON response: {{"score": <0-1>, "reasoning": "<brief>"}}"""
     try:
         response = complete(
             model="llama3.1-70b",
@@ -348,7 +287,7 @@ def main_handler(session: Session, source_table: str, app_name: str, app_version
         logger.info("OCR evaluation run started")
 
         logger.info("Waiting for invocation to complete...")
-        max_wait = 900
+        max_wait = 9000
         wait_time = 0
         while run.get_status() != "INVOCATION_COMPLETED" and wait_time < max_wait:
             current_status = run.get_status()
@@ -372,7 +311,7 @@ def main_handler(session: Session, source_table: str, app_name: str, app_version
         logger.info("Waiting for metrics to complete computation (this may take 30-60 seconds)...")
         time.sleep(30)
 
-        max_metric_wait = 60
+        max_metric_wait = 600
         metric_wait_time = 0
         records_df = None
 
@@ -484,3 +423,4 @@ if __name__ == "__main__":
         sys.exit(0)
     else:
         sys.exit(1)
+
