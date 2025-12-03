@@ -455,25 +455,6 @@ def split_large_docs(session: Session) -> str:
 $$;
 
 
--- =============================
--- HELPER FUNCTION - CHECK IF DOCUMENT IS LARGE
--- =============================
--- Returns TRUE if document exceeds size limits
-CREATE OR REPLACE FUNCTION document_db.s3_documents.is_large_document(
-  file_size NUMBER,
-  file_path VARCHAR
-)
-RETURNS BOOLEAN
-LANGUAGE SQL
-AS
-$$
-  -- Check if file exceeds 100MB
-  -- Page count check would require reading the file, so we use size as proxy
-  -- Average PDF page is ~100KB, so 500 pages ≈ 50MB
-  -- We use 100MB as the safe threshold
-  file_size > 104857600  -- 100MB in bytes
-$$;
-
 
 -- =============================
 -- PROCEDURES
@@ -499,6 +480,8 @@ DECLARE
   processed_count INTEGER := 0;
   large_doc_count INTEGER := 0;
   failed_parse_count INTEGER := 0;
+  excel_count INTEGER := 0;
+  csv_count INTEGER := 0;
   stream_count INTEGER := 0;
 BEGIN
   
@@ -645,10 +628,65 @@ BEGIN
      OR parsed_content:errorInformation::STRING LIKE '%Maximum number of%pages exceeded%';
      */
   
+  -- =====================================================
+  -- STEP 5: Register Excel files for PDF conversion
+  -- Excel files (.xlsx, .xlsm) cannot be parsed directly by AI_PARSE_DOCUMENT
+  -- They are registered for conversion to PDF by the convert_excel_to_pdf procedure
+  -- =====================================================
+  INSERT INTO document_db.s3_documents.excel_document_registry
+  (registry_id, original_file_path, original_file_name, original_file_size, conversion_status)
+  SELECT
+    CONCAT('EXCEL_', ABS(HASH(relative_path)), '_', 
+           REPLACE(REPLACE(CURRENT_TIMESTAMP()::STRING,' ', '_'), ':','')) as registry_id,
+    relative_path as original_file_path,
+    REGEXP_SUBSTR(relative_path, '[^/]+$') as original_file_name,
+    size as original_file_size,
+    'pending' as conversion_status
+  FROM document_db.s3_documents.temp_stream_data
+  WHERE (
+      UPPER(relative_path) LIKE '%.XLSX'
+      OR UPPER(relative_path) LIKE '%.XLSM'
+    )
+    -- DEDUPLICATION: Skip files already registered
+    AND relative_path NOT IN (
+      SELECT original_file_path 
+      FROM document_db.s3_documents.excel_document_registry 
+      WHERE original_file_path IS NOT NULL
+    )
+    -- Skip files from converted folder (avoid re-processing)
+    AND relative_path NOT LIKE 'converted_excel/%';
+  
+  excel_count := SQLROWCOUNT;
+  
+  -- =====================================================
+  -- STEP 6: Register CSV files for structured data loading
+  -- CSV files are handled separately via csv_pipeline
+  -- They will be processed by process_csv_files() procedure
+  -- =====================================================
+  INSERT INTO document_db.s3_documents.csv_file_registry
+  (registry_id, file_path, file_name, file_size, processing_status)
+  SELECT
+    CONCAT('CSV_', ABS(HASH(relative_path)), '_', 
+           REPLACE(REPLACE(CURRENT_TIMESTAMP()::STRING,' ', '_'), ':','')) as registry_id,
+    relative_path as file_path,
+    REGEXP_SUBSTR(relative_path, '[^/]+$') as file_name,
+    size as file_size,
+    'pending' as processing_status
+  FROM document_db.s3_documents.temp_stream_data
+  WHERE UPPER(relative_path) LIKE '%.CSV'
+    -- DEDUPLICATION: Skip files already registered
+    AND relative_path NOT IN (
+      SELECT file_path 
+      FROM document_db.s3_documents.csv_file_registry 
+      WHERE file_path IS NOT NULL
+    );
+  
+  csv_count := SQLROWCOUNT;
+  
   -- Clean up temp table
   DROP TABLE IF EXISTS document_db.s3_documents.temp_stream_data;
   
-  RETURN 'SUCCESS: Stream had ' || stream_count || ' files. Processed ' || processed_count || ' documents, ' || large_doc_count || ' large documents (by size), ' || failed_parse_count || ' documents failed parsing (page limit) - queued for splitting';
+  RETURN 'SUCCESS: Stream had ' || stream_count || ' files. Processed ' || processed_count || ' documents, ' || large_doc_count || ' large documents (by size), ' || failed_parse_count || ' documents failed parsing (page limit), ' || excel_count || ' Excel files, ' || csv_count || ' CSV files registered';
 END;
 $$;
 

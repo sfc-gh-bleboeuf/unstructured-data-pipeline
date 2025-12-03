@@ -1,0 +1,9 @@
+name: ocr_accuracy_dashboard
+channels:
+  - snowflake
+dependencies:
+  - streamlit
+  - snowflake-snowpark-python
+  - pandas
+  - altair
+
