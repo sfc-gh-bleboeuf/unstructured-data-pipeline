@@ -29,6 +29,16 @@
 
 An intelligent, automated document processing pipeline that transforms unstructured documents into structured, searchable data using Snowflake's Cortex AI capabilities. The system processes documents stored in AWS S3, classifies them into business document types, extracts structured attributes, and enables semantic search across all content.
 
+What this framework does:
+Creates an event driven pipeline off of an S3 bucket that handles common semi-structured and unstructured file types(.xlsx,.csv,.docx,.pdf,.png and .jpg) and will do the following:
+   - For purely unstructured data (non .xlsx and .csv) - will PARSE,Classify,Chunk and create a Cortex Search service over that data, allowing for a fully managed event driven pipeline from parsing to vectorization that is AI and search ready.
+   - For Excel data, it will leverage Snowpark to convert the Excel document to a pdf, re-drop on the S3 bucket to be processed through step 1
+   - For csv data, parse through a file format with schema evolution enabled to store a copy of the pivoted data that is ready for downstream transformations.
+
+Current AI_PARSE_DOUCMENT limitation of 500 pages and 100 MB handling:
+
+- For these documents, we will parse and generate an error. The pipeline then tracks the errors and finds large documents, splitting them up using snowpark and adding them back to the pipeline. 
+
 ---
 
 ## Key Highlights

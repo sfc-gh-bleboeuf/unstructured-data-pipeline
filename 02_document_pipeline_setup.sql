@@ -18,6 +18,8 @@
 USE ROLE ACCOUNTADMIN;
 USE DATABASE document_db;
 USE SCHEMA s3_documents;
+--Small or medium sized warehouse recommended
+CREATE WAREHOUSE IF NOT EXISTS COMPUTE_WH WITH WAREHOUSE_SIZE = 'SMALL' WAREHOUSE_TYPE = 'STANDARD' AUTO_SUSPEND = 300 AUTO_RESUME = TRUE;
 USE WAREHOUSE COMPUTE_WH;
 
 -- =============================
@@ -1194,11 +1196,25 @@ SELECT
 FROM document_db.s3_documents.large_document_registry
 GROUP BY split_status;
 
-
+-- View to merge large documents back together and inspect contents
+CREATE OR REPLACE VIEW document_db.s3_documents.merged_large_documents AS
+SELECT 
+    dsp.original_file_path,
+    dsp.registry_id,
+    COUNT(*) as total_parts,
+    LISTAGG(pd.parsed_content:content::STRING, ' ') 
+        WITHIN GROUP (ORDER BY dsp.part_number) as merged_content
+        
+FROM document_db.s3_documents.document_split_parts dsp
+JOIN document_db.s3_documents.parsed_documents pd
+    ON dsp.part_stage_path = pd.file_path
+WHERE TO_CHAR(pd.parsed_content) NOT ILIKE '%errorInformation%'
+GROUP BY dsp.original_file_path, dsp.registry_id
+ORDER BY dsp.original_file_path;
 -- =============================
 -- START TASKS AND VALIDATION QUERIES
 -- =============================
-
+/* 
 -- Verify task status
 DESC TASK document_db.s3_documents.parse_documents_task;
 DESC TASK document_db.s3_documents.classify_documents_task;
@@ -1280,7 +1296,7 @@ SHOW CORTEX SEARCH SERVICES IN SCHEMA document_db.s3_documents;
 -- CALL document_db.s3_documents.extract_attributes_for_classified_documents();
 -- CALL document_db.s3_documents.chunk_classified_documents();
 
-
+*/
 -- =============================
 -- MONITORING AND TROUBLESHOOTING
 -- =============================
@@ -1302,13 +1318,6 @@ SHOW CORTEX SEARCH SERVICES IN SCHEMA document_db.s3_documents;
 -- SELECT * FROM TABLE(INFORMATION_SCHEMA.PIPE_USAGE_HISTORY(
 --   DATE_RANGE_START => DATEADD('day', -7, CURRENT_TIMESTAMP())
 -- ));
-select * FROM document_db.s3_documents.new_documents_stream;
-
-ls @DOCUMENT_DB.S3_DOCUMENTS.DOCUMENT_STAGE;
-
-DESC STREAM document_db.s3_documents.new_documents_stream;
-
-DESC TASK document_db.s3_documents.parse_documents_task;
 
 /* 
 --troubleshooting commands
@@ -1319,6 +1328,7 @@ ALTER TASK document_db.s3_documents.extract_documents_task RESUME;
 ALTER TASK document_db.s3_documents.chunk_documents_task RESUME;
 */
 
+/* 
 --more troubleshooting commands
 CALL document_db.s3_documents.parse_new_documents();
 select * FROM large_document_registry;
@@ -1341,6 +1351,7 @@ ORDER BY START_TIME DESC;
 ALTER TASK document_db.s3_documents.parse_documents_task SUSPEND;
 
 -- Check what's in the stream (this will show data without consuming it)
+ALTER STAGE document_db.s3_documents.document_stage REFRESH;
 SELECT COUNT(*) FROM document_db.s3_documents.new_documents_stream;
 
 -- Resume the warehouse if needed
@@ -1351,3 +1362,14 @@ CALL document_db.s3_documents.parse_new_documents();
 
 select * FROM document_db.s3_documents.parsed_documents
 order by parse_timestamp desc;
+select * FROM document_db.s3_documents.large_document_status;
+
+select * FROM document_db.s3_documents.large_document_registry ldr
+LEFT JOIN document_db.s3_documents.document_split_parts dsp
+on ldr.registry_id=dsp.registry_id;
+
+select dsp.original_file_path,PARSED_CONTENT FROM document_db.s3_documents.document_split_parts dsp
+join document_db.s3_documents.parsed_documents pd
+on dsp.part_stage_path=pd.file_path
+WHERE TO_CHAR(PARSED_CONTENT) NOT ILIKE '%errorInformation%';
+*/

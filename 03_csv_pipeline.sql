@@ -536,6 +536,8 @@ SELECT * FROM document_db.s3_documents.csv_data_master LIMIT 100;
 -- View flattened CSV data
 SELECT * FROM document_db.s3_documents.csv_data_flattened LIMIT 100;
 
+;
+
 -- Verify task status
 DESC TASK document_db.s3_documents.csv_ingest_task;
 
